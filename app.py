@@ -4,17 +4,30 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import datetime
+import os
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 app.secret_key = 'chave-secreta-estoque'
 
-DB_CONFIG = {
-    'host': 'localhost',
-    'port': '5432',
-    'database': 'estoque',
-    'user': 'estoque_ti',
-    'password': 'admin'
-}
+# Configuração do banco de dados para Heroku ou local
+if 'DATABASE_URL' in os.environ:
+    url = urlparse(os.environ['DATABASE_URL'])
+    DB_CONFIG = {
+        'host': url.hostname,
+        'port': url.port,
+        'database': url.path[1:],
+        'user': url.username,
+        'password': url.password
+    }
+else:
+    DB_CONFIG = {
+        'host': 'localhost',
+        'port': '5432',
+        'database': 'estoque',
+        'user': 'estoque_ti',
+        'password': 'admin'
+    }
 
 def get_db_connection():
     try:
@@ -288,7 +301,7 @@ def login():
             session['nome_completo'] = usuario['nome_completo']
             session['user_type'] = usuario['tipo']
             
-            registrar_log_acesso(usuario['id'], usuario['username'], usuario['nome_completo'], 'login', request)
+            registrar_log_acesso(usuario['id'], usuario['username'], usuario['nome_completo'], 'login', request, request.headers.get('User-Agent'))
             
             if usuario['tipo'] == 'admin':
                 flash(f'Bem-vindo, {usuario["nome_completo"]}!', 'success')
@@ -304,7 +317,7 @@ def login():
 @app.route('/logout')
 def logout():
     if 'user_id' in session:
-        registrar_log_acesso(session['user_id'], session['username'], session['nome_completo'], 'logout', request)
+        registrar_log_acesso(session['user_id'], session['username'], session['nome_completo'], 'logout', request, request.headers.get('User-Agent'))
     session.clear()
     flash('Você foi desconectado com sucesso!', 'success')
     return redirect(url_for('login'))
